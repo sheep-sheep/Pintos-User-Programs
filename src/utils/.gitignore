@@ -1,6 +1,9 @@
 setitimer-helper
 squish-pty
 squish-unix
-pintos
-pintos-gdb
-Pintos.pm
+#pintos
+#pintos-gdb
+#Pintos.pm
+# Use git update-index --assume-unchanged path/to/file to untrack file!
+
+
