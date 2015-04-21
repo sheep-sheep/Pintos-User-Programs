@@ -446,6 +446,18 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
+  
+  /* Set up the stack to store the auguments. The stack stores the contents of
+   * arguments, word-align, addresses of each arguments, number of arguments,
+   * return address. */
+  char *token;
+  
+  for (token = (char *) fileName; token != NULL;
+       token = strtok_r (NULL, " ", &savePtr))
+    {
+
+    }
+
   return success;
 }
 
