@@ -55,3 +55,6 @@ pintos
 
 cscope.in.out
 cscope.po.out
+
+bochsout.txt
+bochsrc.txt
