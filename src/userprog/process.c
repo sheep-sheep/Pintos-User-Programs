@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char **savePtr); //savePtr points to the pointer of the original string
@@ -200,7 +201,9 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+#define halfWord 4
+
+static bool setup_stack (void **esp, const char * fileName, char **savePtr);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -307,7 +310,7 @@ load (const char *file_name, void (**eip) (void), void **esp, char **savePtr)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, file_name, savePtr))
     goto done;
 
   /* Start address. */
@@ -432,7 +435,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, const char *fileName, char **savePtr) 
 {
   uint8_t *kpage;
   bool success = false;
@@ -451,12 +454,45 @@ setup_stack (void **esp)
    * arguments, word-align, addresses of each arguments, number of arguments,
    * return address. */
   char *token;
-  
+  int argc = 0;  
+  int i = 0;
+  char **argv = malloc (4 * sizeof (char *)); //store the address of each argument
+
   for (token = (char *) fileName; token != NULL;
        token = strtok_r (NULL, " ", &savePtr))
     {
+      *esp -= strlen (token) + 1;
+      argv[argc++] = *esp;
 
+      //put args to stack
+      memcpy (*esp, token, strlen (token) + 1);
     }
+
+   //add Word-align, in order to make esp pointer a multiple of 4
+   //fill in 0 if the current esp not pointer a multiple of 4
+   int numOfZero = (size_t) *esp % halfWord;
+   if (numOfZero != 0) 
+   {
+     *esp -= numOfZero;
+     memset (*esp, 0, numOfZero);
+   }
+
+   //Push addresses of arguments to stack
+   for (i = 0; i <= argc; i++) 
+    {
+      *esp -= sizeof (char *);
+      memcpy (*esp, &argv[argc - i], sizeof (char *));
+    }
+    
+   //Push argc
+   *esp -= sizeof (int);
+   memcpy (*esp, &argc, sizeof (void *));
+    
+   //push fake return addr
+   *esp -= sizeof (void *);
+   memcpy (*esp, &argv[argc], sizeof (void *));
+
+   free (argv);
 
   return success;
 }
