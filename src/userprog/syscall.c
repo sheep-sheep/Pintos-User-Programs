@@ -238,10 +238,30 @@ void close(int fd){
 }
 
 int put_file(struct file *f){
-	return 1;
+	struct thread *t = thread_current();
+	struct file_object *pf = malloc(sizeof(struct file_object));
+
+	pf->file = f;
+	pf->fd = &t->fd;
+	// I have a doubt here. use thread_current() instead?
+	t->fd++;
+	// Don't need to maintain an order here.
+	list_push_back(&t->file_list, &pf->elem);
+	return pf->fd;
 }
 
 struct file* get_file(int fd){
+	struct thread *t = thread_current();
+	struct list_elem *e;
+	/* Iterate through the file list and compare the fd value, if they're the
+	same, then this pf->file is the file we are looking for.*/
+	for(e = list_begin(&t->file_list); e!=list_end(&t->file_list);
+		e = list_next(e)){
+		struct file_object *pf = list_entry(e, struct file_object, elem);
+		if(fd == pf->fd){
+			return pf->file;
+		}
+	}
 	return NULL;
 }
 

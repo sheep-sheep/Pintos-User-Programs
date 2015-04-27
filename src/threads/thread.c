@@ -472,7 +472,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   /* Initilize the new added struct and variable. */
   t->fd = FD_SIZE;
-  list_init (&file_list);
+  // It is defined in thread, we need to access it through 't'.
+  list_init (&t->file_list);
 
   list_push_back (&all_list, &t->allelem);
 }
