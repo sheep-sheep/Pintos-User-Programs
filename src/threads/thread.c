@@ -19,7 +19,8 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
-
+/* File descriptors numbered 0 and 1 are reserved for the console. */ 
+#define FD_SIZE 2
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -469,6 +470,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  /* Initilize the new added struct and variable. */
+  t->fd = FD_SIZE;
+  list_init (&file_list);
+
   list_push_back (&all_list, &t->allelem);
 }
 

@@ -6,6 +6,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/init.h"
+#include "threads/malloc.h"
+#include "threads/synch.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 #include "devices/input.h"
@@ -20,6 +22,16 @@ struct file* get_file (int fd);
 void close_file (int fd);
 
 #define SIZE 4
+#define ERROR -1 // Where does the ERROR comes from?
+
+struct lock file_lock;
+/* Create the file object structure to hold the processing files. */	 
+struct file_object {
+	struct file *file;
+	int fd;
+	struct list_elem elem;
+};
+
 void
 syscall_init (void) 
 {
