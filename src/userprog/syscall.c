@@ -58,41 +58,43 @@ syscall_handler(struct intr_frame *f UNUSED){
 		}
 		case SYS_EXEC:{
 			arg[1] = user_provide_ptr((const void *) arg[1]);
-			exec((const char *)arg[1]); 
+			/* f->eax, Saved EAX in Interrrupt Frame. Need to explain why we need it*/
+			f->eax = exec((const char *)arg[1]); 
 			break;
 		}
 		case SYS_WAIT:{
-			wait(arg[1]);
+		/* f->eax, Saved EAX in Interrrupt Frame. */
+			f->eax = wait(arg[1]);
 			break;
 		}
 		case SYS_CREATE:
 		{
 			arg[1] = user_provide_ptr((const void *) arg[1]);
-			create((const char *)arg[1], (unsigned) arg[2]);
+			f->eax = create((const char *)arg[1], (unsigned) arg[2]);
 			break;
 		}
 		case SYS_REMOVE:{
 			arg[1] = user_provide_ptr((const void *) arg[1]);
-			remove((const char *) arg[1]);
+			f->eax = remove((const char *) arg[1]);
 			break;
 		}
 		case SYS_OPEN:{
 			arg[1] = user_provide_ptr((const void *) arg[1]);
-			open((const char *) arg[1]);
+			f->eax = open((const char *) arg[1]);
 			break; 		
 		}
 		case SYS_FILESIZE:{
-			filesize(arg[1]);
+			f->eax = filesize(arg[1]);
 			break;
 		}
 		case SYS_READ:{
 			arg[2] = user_provide_ptr((const void *) arg[2]);
-			read(arg[1], (void *) arg[2], (unsigned) arg[3]);
+			f->eax = read(arg[1], (void *) arg[2], (unsigned) arg[3]);
 			break;
 		}
 		case SYS_WRITE:{ 
 			arg[2] = user_provide_ptr((const void *) arg[2]);
-			write(arg[1], (const void *) arg[2], (unsigned) arg[3]);
+			f->eax = write(arg[1], (const void *) arg[2], (unsigned) arg[3]);
 			break;
 		}
 		case SYS_SEEK:{
@@ -100,7 +102,7 @@ syscall_handler(struct intr_frame *f UNUSED){
 			break;
 		} 
 		case SYS_TELL:{ 
-			tell(arg[1]);
+			f->eax = tell(arg[1]);
 			break;
 		}
 		case SYS_CLOSE:{ 
