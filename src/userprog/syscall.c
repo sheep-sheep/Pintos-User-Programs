@@ -136,8 +136,15 @@ void halt(void){
 }
 
 void exit(int status){
+  struct thread *currentThread = thread_current();  
+  
+  if(thread_exists (currentThread->parent)) {
+    if(currentThread->child->wait) {
+      currentThread->child->status = status;
+    }
+  }
 	// Process Termination Messages
-	printf ("%s: exit(%d)\n", thread_current()->name, status);
+	printf ("%s: exit(%d)\n", currentThread->name, status);
 	thread_exit();
 }// Terminates the current user program, returning status to the kernel. 
 
@@ -146,6 +153,15 @@ pid_t exec(const char *cmd_line){
 	FILENAME. Returns the new process's thread id, or TID_ERROR 
 	if the thread cannot be created. TID_ERROR is tid_t-1=-1.*/
 	pid_t pid = process_execute(cmd_line);
+
+  struct child *child = get_child(pid);
+  if(!child || child->load == 2) { //2 means load failed
+    return ERROR;
+  }
+
+  while(child->load == 0) { //0 means hasn't loaded yet
+    barrier();
+  }
 	return pid;
 }
 
@@ -302,4 +318,49 @@ void close_remove_file(int fd){
 		}
 	}
 	return;
+}
+
+struct child *get_child (int pid)
+{
+  struct thread *thread = thread_current();
+  struct list_elem *element;
+
+  for(element = list_begin(&thread->listOfChild); element != list_end(&thread->listOfChild); element = list_next(element)) {
+    struct child *child = list_entry(element, struct child, listElem);
+    if(pid == child->pid)
+      return child;
+  }
+
+  return NULL;
+}
+
+struct child *push_child (int pid)
+{
+  struct child *child = malloc(sizeof(struct child));
+  child->pid = pid;
+  child->wait = false;
+  child->exit = false;
+  child->load = 0; //meaning that hasn't been loaded yet
+  lock_init (&child->waitLock);
+  list_push_back (&thread_current()->listOfChild, &child->listElem);
+
+  return child;
+}
+
+void delete_childs (void)
+{
+  struct thread *thread = thread_current();
+  struct list_elem *element;
+
+  for(element = list_begin(&thread->listOfChild); element != list_end(&thread->listOfChild); element = list_next(element)) {
+    struct child *child = list_entry(element, struct child, listElem);
+    list_remove(&child->listElem);
+    free (child);
+  }
+}
+
+void delete_child (struct child *child) 
+{
+  list_remove(&child->listElem);
+  free (child);
 }

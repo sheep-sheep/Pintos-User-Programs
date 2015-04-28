@@ -15,11 +15,13 @@ struct child{
 
   struct lock waitLock;
   struct list_elem listElem;
-}
+};
 
 void syscall_init (void);
 void close_remove_file (int fd);
 
 struct child *get_child (int pid);
-void delete_child (int pid); 
+struct child *push_child (int pid);
+void delete_child (struct child *child);
+void delete_childs (void);
 #endif /* userprog/syscall.h */
