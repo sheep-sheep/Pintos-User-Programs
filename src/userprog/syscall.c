@@ -15,11 +15,11 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 
-static void syscall_handler (struct intr_frame *);
+static void syscall_handler(struct intr_frame *);
 int user_provide_ptr(const void *vaddr);
-int put_file (struct file *f);
-struct file* get_file (int fd);
-void close_file (int fd);
+int put_file(struct file *f);
+struct file* get_file(int fd);
+void close_file(int fd);
 
 #define SIZE 4
 #define ERROR -1 // Where does the ERROR comes from?
@@ -35,7 +35,10 @@ struct file_object {
 void
 syscall_init(void) 
 {
-  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+	/* Initializes LOCK.  A lock can be held by at most a single 
+	thread at any given time. */
+	lock_init(&file_lock);
+	intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
 static void
@@ -154,21 +157,26 @@ int wait(pid_t pid){
 
 bool create(const char *file, unsigned initial_size){
 // Add lock to this part
+	lock_acquire(&file_lock);
 	/* From filesys.c, Creates a file named NAME with 
 	the given INITIAL_SIZE. Returns true if successful, 
 	false otherwise. Fails if a file named NAME already exists,
 	or if internal memory allocation fails. */
 	bool success = filesys_create(file, initial_size);
+	lock_release(&file_lock);
 	return success;
 }
 
 bool remove(const char *file){
 // Add lock to this part
+	lock_acquire(&file_lock);
+	lock_release(&file_lock);
 	return true;
 }
 
 int open(const char *file){
 // Add lock to this part
+	lock_acquire(&file_lock);
 	// Open a file and add it to a file list. Each 
 	// process has an independent set of file descriptors. 
 	/* Returns the new file if successful or a null pointer
@@ -176,15 +184,18 @@ int open(const char *file){
 	struct file *f = filesys_open(file);
 	// Implement a way to get the fd of current file.
 	int fd = put_file(f);
+	lock_release(&file_lock);
 	return fd;
 }
 
 int filesize(int fd){
 // Add lock to this part
+	lock_acquire(&file_lock);
 	// Implement a way to get the fd of current file.
 	struct file *f = get_file(fd);
 	// From file.c, Returns the size, in bytes, of the file open as fd.
 	int size = file_length(f);
+	lock_release(&file_lock);
 	return size;
 }
 
@@ -200,8 +211,10 @@ int read(int fd, void *buffer, unsigned size){
 		return size;
 	}
 // Add lock to this part
+	lock_acquire(&file_lock);
 	struct file *f = get_file(fd);
 	int bytes = file_read(f, buffer, size);
+	lock_release(&file_lock);
 	return bytes;
 }
 
@@ -213,30 +226,41 @@ int write(int fd, const void *buffer, unsigned size){
 		return size;
 	}
 // Add lock to this part
+	lock_acquire(&file_lock);
 	struct file *f = get_file(fd);
 	int bytes = file_write(f, buffer, size);
+	lock_release(&file_lock);
 	return bytes;
 }
 
 void seek(int fd, unsigned position){
+	lock_acquire(&file_lock);
 	struct file *f = get_file(fd);
 	/* Sets the current position in FILE to NEW_POS bytes from the
    start of the file. */
+	lock_release(&file_lock);
 	file_seek(f, position);
 }
 
 unsigned tell(int fd){
+	lock_acquire(&file_lock);
 	struct file *f = get_file(fd);
 	/* Returns the current position in FILE as a byte offset from the
    start of the file. */
 	off_t offset = file_tell(f);
+	lock_release(&file_lock);
 	return offset;	
 }
 
 void close(int fd){
+	lock_acquire(&file_lock);
+	/* Since we have a list to store the files, when we want to delete
+	one file, we also need to search the file in that list and remove the 
+	file from list. To be implemented later. */
 	struct file *f = get_file(fd);
 	file_close(f);
 	close_file(fd);
+	lock_release(&file_lock);
 }
 
 int put_file(struct file *f){
