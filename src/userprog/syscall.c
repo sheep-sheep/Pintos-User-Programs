@@ -19,7 +19,7 @@ static void syscall_handler(struct intr_frame *);
 int user_provide_ptr(const void *vaddr);
 int put_file(struct file *f);
 struct file* get_file(int fd);
-void close_file(int fd);
+void close_remove_file(int fd);
 
 #define SIZE 4
 #define ERROR -1 // Where does the ERROR comes from?
@@ -257,9 +257,7 @@ void close(int fd){
 	/* Since we have a list to store the files, when we want to delete
 	one file, we also need to search the file in that list and remove the 
 	file from list. To be implemented later. */
-	struct file *f = get_file(fd);
-	file_close(f);
-	close_file(fd);
+	close_remove_file(fd);
 	lock_release(&file_lock);
 }
 
@@ -291,6 +289,17 @@ struct file* get_file(int fd){
 	return NULL;
 }
 
-void close_file(int fd){
+void close_remove_file(int fd){
+	struct thread *t = thread_current();
+	struct list_elem *e;
+	for(e = list_begin(&t->file_list); e != list_end (&t->file_list); 
+		e = list_next(e)){
+		struct file_object *pf = list_entry(e, struct file_object, elem);
+		if (fd == pf->fd || fd == CLOSE_FILE){
+			file_close(pf->file);
+			list_remove(&pf->elem);
+			free(pf);
+		}
+	}
 	return;
 }
