@@ -459,6 +459,7 @@ setup_stack (void **esp, const char *fileName, char **savePtr)
   char *token;
   int argc = 0;  
   int i = 0;
+  int argv_size = 4;
   char **argv = malloc (4 * sizeof (char *)); //store the address of each argument
 
   // Here the token is different!
@@ -467,7 +468,11 @@ setup_stack (void **esp, const char *fileName, char **savePtr)
     {
       *esp -= strlen (token) + 1;
       argv[argc++] = *esp;
-
+      // For multiple argvs, we need to double the buffer to store them.
+      if (argc >= argv_size){
+        argv_size *= 2;
+        argv = realloc(argv, argv_size*sizeof(char *));
+      }
       //put args to stack
       memcpy (*esp, token, strlen (token) + 1);
     }
@@ -480,7 +485,8 @@ setup_stack (void **esp, const char *fileName, char **savePtr)
      *esp -= numOfZero;
      memset (*esp, 0, numOfZero);
    }
-
+   // In order to fill the Argv
+   argv[argc] = 0;
    //Push addresses of arguments to stack
    for (i = 0; i <= argc; i++) 
     {
