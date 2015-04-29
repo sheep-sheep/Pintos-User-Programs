@@ -11,8 +11,10 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -206,6 +208,11 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   intr_set_level (old_level);
+
+  /* Push child process to child list. */
+  t->parent = thread_tid ();
+  struct child *child = push_child (t->tid);
+  t->child = child;
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -476,6 +483,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init (&t->file_list);
 
   list_push_back (&all_list, &t->allelem);
+
+  list_init (&t->listOfChild);
+  t->parent = -1; //meaning no parent
+  t->child = NULL;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -591,3 +602,15 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+bool thread_exists (int pid)
+{ 
+  struct list_elem *element;
+  for(element = list_begin (&all_list); element != list_end (&all_list); element = list_next (element)) {
+    struct thread *thread = list_entry (element, struct thread, allelem);
+    if(thread->tid == pid)
+      return true;
+  }
+
+  return false;
+}

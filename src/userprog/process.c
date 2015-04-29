@@ -67,6 +67,11 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp, &savePtr);
+  if (success) {
+    thread_current()->child->load = 1; //means load success
+  }else {
+    thread_current()->child->load = 2; //fail
+  }
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -95,7 +100,22 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  struct child *child = get_child(child_tid);
+  if(!child || child->wait) {
+    return ERROR;
+  }
+
+  child->wait = true;
+
+  while(!child->exit) {
+    lock_acquire (&child->waitLock);
+    barrier();
+  }
+
+  int status = child->status;
+  delete_child (child);
+
+  return status;
 }
 
 /* Free the current process's resources. */
@@ -107,6 +127,14 @@ process_exit (void)
   /* When process is finished, we should consider it may open a file and it needs to
   close all the files.*/
   close_remove_file(CLOSE_FILE);
+
+  /* We also need to delete all child processes. */
+  delete_childs ();
+
+  if(thread_exists (cur->parent)) {
+    cur->child->exit = true;
+  }
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;

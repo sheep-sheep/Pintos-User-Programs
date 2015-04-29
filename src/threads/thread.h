@@ -105,6 +105,11 @@ struct thread
     struct list file_list;
     /* File descriptor. */
     int fd;
+
+    /* Record the child processes. */
+    struct list listOfChild;
+    tid_t parent;
+    struct child *child;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -142,5 +147,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+bool thread_exists (int pid);
 
 #endif /* threads/thread.h */
