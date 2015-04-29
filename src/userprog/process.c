@@ -461,8 +461,9 @@ setup_stack (void **esp, const char *fileName, char **savePtr)
   int i = 0;
   char **argv = malloc (4 * sizeof (char *)); //store the address of each argument
 
+  // Here the token is different!
   for (token = (char *) fileName; token != NULL;
-       token = strtok_r (NULL, " ", &savePtr))
+       token = strtok_r (NULL, " ", savePtr))
     {
       *esp -= strlen (token) + 1;
       argv[argc++] = *esp;
@@ -501,7 +502,8 @@ setup_stack (void **esp, const char *fileName, char **savePtr)
    memcpy (*esp, &argv[argc], sizeof (void *));
 
    free (argv);
-
+   // Debug purpose
+   hex_dump(0, *esp, (int) ((size_t) PHYS_BASE - (size_t) *esp), true);
   return success;
 }
 
