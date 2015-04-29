@@ -20,9 +20,12 @@ int user_provide_ptr(const void *vaddr);
 int put_file(struct file *f);
 struct file* get_file(int fd);
 void close_remove_file(int fd);
+void ptr_isValid (const void *vaddr);
+void buffer_isValid (void *buffer, unsigned size);
+void getArgument (struct intr_frame *f, int *arg, int n);
 
-#define SIZE 4
-#define ERROR -1 // Where does the ERROR comes from?
+#define SIZE 3
+#define VADDR_OF_USER ((void *) 0x08048000)
 
 struct lock file_lock;
 /* Create the file object structure to hold the processing files. */	 
@@ -43,73 +46,83 @@ syscall_init(void)
 
 static void
 syscall_handler(struct intr_frame *f UNUSED){
-	int i, arg[SIZE];
-	// Get the argument value.
-	for (i = 0; i < SIZE; i++){
-		arg[i] = *((int *)f->esp + i);
-	}
+	int arg[SIZE];
+  ptr_isValid ((const void *) f->esp);
 	/* These state value comes from lib_syscall_nr which defines the
 	sys call numbers. */
-	switch (arg[0]){
+	switch (* (int *)f->esp){
 		case SYS_HALT:{
 			halt(); 
 			break;
 		}
 		case SYS_EXIT:{
-			exit(arg[1]);
+      getArgument(f, &arg[0], 1);
+      exit (arg[0]);
 			break;
 		}
 		case SYS_EXEC:{
-			arg[1] = user_provide_ptr((const void *) arg[1]);
-			/* f->eax, Saved EAX in Interrrupt Frame. Need to explain why we need it*/
-			f->eax = exec((const char *)arg[1]); 
+      getArgument (f, &arg[0], 1);
+      arg[0] = user_provide_ptr ((const void *) arg[0]);
+      f->eax = exec ((const char *) arg[0]);
 			break;
 		}
 		case SYS_WAIT:{
 		/* f->eax, Saved EAX in Interrrupt Frame. */
-			f->eax = wait(arg[1]);
+      getArgument (f, &arg[0], 1);
+			f->eax = wait(arg[0]);
 			break;
 		}
 		case SYS_CREATE:
 		{
-			arg[1] = user_provide_ptr((const void *) arg[1]);
-			f->eax = create((const char *)arg[1], (unsigned) arg[2]);
+      getArgument (f, &arg[0], 2);
+			arg[0] = user_provide_ptr((const void *) arg[0]);
+			f->eax = create((const char *)arg[0], (unsigned) arg[1]);
 			break;
 		}
 		case SYS_REMOVE:{
-			arg[1] = user_provide_ptr((const void *) arg[1]);
-			f->eax = remove((const char *) arg[1]);
+      getArgument (f, &arg[0], 1);
+			arg[0] = user_provide_ptr((const void *) arg[0]);
+			f->eax = remove((const char *) arg[0]);
 			break;
 		}
 		case SYS_OPEN:{
-			arg[1] = user_provide_ptr((const void *) arg[1]);
-			f->eax = open((const char *) arg[1]);
+      getArgument (f, &arg[0], 1);
+			arg[0] = user_provide_ptr((const void *) arg[0]);
+			f->eax = open((const char *) arg[0]);
 			break; 		
 		}
 		case SYS_FILESIZE:{
-			f->eax = filesize(arg[1]);
+      getArgument (f, &arg[0], 1);
+			f->eax = filesize(arg[0]);
 			break;
 		}
 		case SYS_READ:{
-			arg[2] = user_provide_ptr((const void *) arg[2]);
-			f->eax = read(arg[1], (void *) arg[2], (unsigned) arg[3]);
+      getArgument (f, &arg[0], 3);
+      buffer_isValid ((void *) arg[1], (unsigned) arg[2]);
+			arg[1] = user_provide_ptr((const void *) arg[1]);
+			f->eax = read(arg[0], (void *) arg[1], (unsigned) arg[2]);
 			break;
 		}
 		case SYS_WRITE:{ 
-			arg[2] = user_provide_ptr((const void *) arg[2]);
-			f->eax = write(arg[1], (const void *) arg[2], (unsigned) arg[3]);
+      getArgument (f, &arg[0], 3);
+      buffer_isValid ((void *) arg[1], (unsigned) arg[2]);
+			arg[1] = user_provide_ptr((const void *) arg[1]);
+			f->eax = write(arg[0], (const void *) arg[1], (unsigned) arg[2]);
 			break;
 		}
 		case SYS_SEEK:{
-			seek(arg[1], (unsigned) arg[2]);
+      getArgument (f, &arg[0], 2);
+			seek(arg[0], (unsigned) arg[1]);
 			break;
 		} 
 		case SYS_TELL:{ 
-			f->eax = tell(arg[1]);
+      getArgument (f, &arg[0], 1);
+			f->eax = tell(arg[0]);
 			break;
 		}
 		case SYS_CLOSE:{ 
-			close(arg[1]);
+      getArgument (f, &arg[0], 1);
+			close(arg[0]);
 			break;
 		} 
 	}
@@ -117,17 +130,39 @@ syscall_handler(struct intr_frame *f UNUSED){
 
 int user_provide_ptr(const void *vaddr){
 	// Verify the validity of a user-provided pointer
-	if (!is_user_vaddr(vaddr)){
-  	thread_exit();
-  	return 0;
+  ptr_isValid (vaddr);
+  void *ptr = pagedir_get_page (thread_current()->pagedir, vaddr);
+  if(!ptr) {
+    exit (ERROR);
   }
 
-  void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
-  if (!ptr){
-  	thread_exit();
-  	return 0; // Double check whether we could get right pointer address.
-  }
   return (int) ptr;
+}
+
+void ptr_isValid (const void *vaddr) {
+  if(!is_user_vaddr (vaddr) || vaddr < VADDR_OF_USER)
+    exit (ERROR);
+}
+
+void buffer_isValid (void *buffer, unsigned size) {
+  char *temp = (char *) buffer;
+  int i;
+
+  for(i = 0; i < size; i++) {
+    ptr_isValid ((const void *)temp);
+    temp++;
+  }
+}
+
+void getArgument (struct intr_frame *f, int *arg, int n) {
+  int *ptr;
+  int i;
+  
+  for(i = 0; i < n; i++) {
+    ptr = (int *) f->esp + i + 1;
+    ptr_isValid ((const void *) ptr);
+    arg[i] = *ptr;
+  }
 }
 
 void halt(void){
@@ -139,9 +174,7 @@ void exit(int status){
   struct thread *currentThread = thread_current();  
   
   if(thread_exists (currentThread->parent)) {
-    if(currentThread->child->wait) {
       currentThread->child->status = status;
-    }
   }
 	// Process Termination Messages
 	printf ("%s: exit(%d)\n", currentThread->name, status);
