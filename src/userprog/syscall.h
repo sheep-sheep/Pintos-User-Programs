@@ -7,14 +7,14 @@
 #define ERROR -1
 
 struct child{
-  int pid;
-  bool wait;
-  bool exit;
-  int load;
-  int status;
+  int pid;			/* The current process's pid. */
+  bool wait;		/* Parent process is waiting. */
+  bool exit;		/* The process has exited. */
+  int load;			/* Whether the process has loaded or not. */
+  int status;		/* Exit status of the process. */
 
   struct lock waitLock;
-  struct list_elem listElem;
+  struct list_elem listElem;	/* List element. */
 };
 
 void syscall_init (void);

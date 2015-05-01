@@ -23,14 +23,13 @@ struct file* get_file(int fd);
 
 void close_remove_file(int fd);
 
-//void ptr_isValid (const void *vaddr);
+void Check_ptr_valid(const void *vaddr);
 //void buffer_isValid (void *buffer, unsigned size);
 //void getArgument (struct intr_frame *f, int *arg, int n);
 
 #define SIZE 3
-#define VADDR_OF_USER ((void *) 0x08048000)
 
-struct lock file_lock;
+struct lock global_file_lock;
 /* Create the file object structure to hold the processing files. */	 
 struct file_object {
 	struct file *file;
@@ -43,7 +42,8 @@ syscall_init(void)
 {
 	/* Initializes LOCK.  A lock can be held by at most a single 
 	thread at any given time. */
-	lock_init(&file_lock);
+	lock_init(&global_file_lock);
+	// Start interrupt and call syscall_handler.
 	intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -51,7 +51,7 @@ static void
 syscall_handler(struct intr_frame *f UNUSED){
 	int arg[SIZE],i;
 	//ptr_isValid ((const void *) f->esp);
-
+	// *esp points to the syscall number.
 	for (i = 0; i <= SIZE; i++){
 		arg[i] = * ((int *) f->esp + i);
     }
@@ -137,18 +137,21 @@ syscall_handler(struct intr_frame *f UNUSED){
 
 int user_provide_ptr(const void *vaddr){
 	// Verify the validity of a user-provided pointer
-  	//ptr_isValid (vaddr);
-  	void *ptr = pagedir_get_page (thread_current()->pagedir, vaddr);
+  	Check_ptr_valid(vaddr);
+
+  	struct thread *t = thread_current();  
+  	void *ptr = pagedir_get_page (t->pagedir, vaddr);
   	if(!ptr) {
     	exit (ERROR);
   	}
   	return (int) ptr;
 }
-
-// void ptr_isValid (const void *vaddr) {
-//   if(!is_user_vaddr (vaddr) || vaddr < VADDR_OF_USER)
-//     exit (ERROR);
-// }
+// Make sure the ptr is in valid range.
+void Check_ptr_valid(const void *vaddr) {
+  //  || vaddr < VADDR_OF_USER
+  if(!is_user_vaddr (vaddr))
+    exit (ERROR);
+}
 
 // void buffer_isValid (void *buffer, unsigned size) {
 //   char *temp = (char *) buffer;
@@ -212,44 +215,44 @@ int wait(pid_t pid){
 
 bool create(const char *file, unsigned initial_size){
 // Add lock to this part
-	lock_acquire(&file_lock);
+	lock_acquire(&global_file_lock);
 	/* From filesys.c, Creates a file named NAME with 
 	the given INITIAL_SIZE. Returns true if successful, 
 	false otherwise. Fails if a file named NAME already exists,
 	or if internal memory allocation fails. */
 	bool success = filesys_create(file, initial_size);
-	lock_release(&file_lock);
+	lock_release(&global_file_lock);
 	return success;
 }
 
 bool remove(const char *file){
 // Add lock to this part
-	lock_acquire(&file_lock);
-	lock_release(&file_lock);
+	lock_acquire(&global_file_lock);
+	lock_release(&global_file_lock);
 	return true;
 }
 
 int open(const char *file){
 // Add lock to this part
-	lock_acquire(&file_lock);
+	lock_acquire(&global_file_lock);
 	// Open a file and add it to a file list. Each 
 	// process has an independent set of file descriptors. 
 	/* Returns the new file if successful or a null pointer
    otherwise. */
 	struct file *f = filesys_open(file);
-	// if(!f){
-	// 	lock_release(&filesys_lock);
-	// 	return ERROR;
-	// }
+	if(!f){
+		lock_release(&global_file_lock);
+		return ERROR;
+	}
 	// Implement a way to get the fd of current file.
 	int fd = put_file(f);
-	lock_release(&file_lock);
+	lock_release(&global_file_lock);
 	return fd;
 }
 
 int filesize(int fd){
 // Add lock to this part
-	lock_acquire(&file_lock);
+	lock_acquire(&global_file_lock);
 	// Implement a way to get the fd of current file.
 	struct file *f = get_file(fd);
 	// if(!f){
@@ -258,7 +261,7 @@ int filesize(int fd){
 	// }
 	// From file.c, Returns the size, in bytes, of the file open as fd.
 	int size = file_length(f);
-	lock_release(&file_lock);
+	lock_release(&global_file_lock);
 	return size;
 }
 
@@ -275,10 +278,10 @@ int read(int fd, void *buffer, unsigned size){
 		return size;
 	}
 // Add lock to this part
-	lock_acquire(&file_lock);
+	lock_acquire(&global_file_lock);
 	struct file *f = get_file(fd);
 	int bytes = file_read(f, buffer, size);
-	lock_release(&file_lock);
+	lock_release(&global_file_lock);
 	return bytes;
 }
 
@@ -291,43 +294,43 @@ int write(int fd, const void *buffer, unsigned size){
 		return size;
 	}
 // Add lock to this part
-	lock_acquire(&file_lock);
+	lock_acquire(&global_file_lock);
 	struct file *f = get_file(fd);
 	// if(!f){
 	// 	lock_release(&filesys_lock);
 	// 	return ERROR;
 	// }
 	int bytes = file_write(f, buffer, size);
-	lock_release(&file_lock);
+	lock_release(&global_file_lock);
 	return bytes;
 }
 
 void seek(int fd, unsigned position){
-	lock_acquire(&file_lock);
+	lock_acquire(&global_file_lock);
 	struct file *f = get_file(fd);
 	/* Sets the current position in FILE to NEW_POS bytes from the
    start of the file. */
-	lock_release(&file_lock);
+	lock_release(&global_file_lock);
 	file_seek(f, position);
 }
 
 unsigned tell(int fd){
-	lock_acquire(&file_lock);
+	lock_acquire(&global_file_lock);
 	struct file *f = get_file(fd);
 	/* Returns the current position in FILE as a byte offset from the
    start of the file. */
 	off_t offset = file_tell(f);
-	lock_release(&file_lock);
+	lock_release(&global_file_lock);
 	return offset;	
 }
 
 void close(int fd){
-	lock_acquire(&file_lock);
+	lock_acquire(&global_file_lock);
 	/* Since we have a list to store the files, when we want to delete
 	one file, we also need to search the file in that list and remove the 
 	file from list. To be implemented later. */
 	close_remove_file(fd);
-	lock_release(&file_lock);
+	lock_release(&global_file_lock);
 }
 
 int put_file(struct file *f){
