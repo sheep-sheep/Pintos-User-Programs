@@ -23,6 +23,7 @@
 static thread_func start_process NO_RETURN;
 //savePtr points to the pointer of the original string
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char **savePtr); 
+char * parse_name(char *file_name);
 
 /* Starts a new thread running a user program loaded from
 	 FILENAME.  The new thread may be scheduled (and may even exit)
@@ -42,14 +43,18 @@ process_execute (const char *file_name)
 	strlcpy (fn_copy, file_name, PGSIZE);
 
 	// Will add test function here.
-	char *savePtr;
-	file_name = strtok_r((char *) file_name, " ", &savePtr);
+	file_name = parse_name(file_name);
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy); 
 	return tid;
+}
+
+char * parse_name(char *file_name){
+	char *savePtr;
+	return strtok_r((char *) file_name, " ", &savePtr);
 }
 
 /* A thread function that loads a user process and starts it
@@ -73,11 +78,11 @@ start_process (void *file_name_)
 	if_.eflags = FLAG_IF | FLAG_MBS;
 	success = load (file_name, &if_.eip, &if_.esp, &savePtr);
 
-	// Update the process's state to the data structure
+	// Will change this part later, Update the process's state to the data structure
 	if (success) {
-		thread_current()->child->load = 1; //means load success
+		thread_current()->child_elem->load = 1; //means load success
 	}else {
-		thread_current()->child->load = 2; //fail
+		thread_current()->child_elem->load = 2; //fail
 	}
 
 	/* If load failed, quit. */
@@ -136,8 +141,8 @@ process_exit (void)
 	/* We also need to delete all child processes. */
 	delete_childs ();
 
-	if(thread_exists (t->parent)) {
-		t->child->exit = true;
+	if(thread_exists (t->parent_pid)) {
+		t->child_elem->exit = true;
 	}
 	/* Destroy the current process's page directory and switch back
 		 to the kernel-only page directory. */

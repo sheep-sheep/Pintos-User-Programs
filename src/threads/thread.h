@@ -96,20 +96,20 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-#endif
-
-    /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
-
+    /* Record the child processes. */
+    struct list listOfChild;
     /* Record the files that are processing. */
     struct list file_list;
     /* File descriptor. */
     int fd;
+    /* The thread's parent's pid. */
+    tid_t parent_pid;
+    /* A pointer to the process in child list. */
+    struct child *child_elem;
+#endif
 
-    /* Record the child processes. */
-    struct list listOfChild;
-    tid_t parent;
-    struct child *child;
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
   };
 
 /* If false (default), use round-robin scheduler.

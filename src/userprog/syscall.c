@@ -17,12 +17,15 @@
 
 static void syscall_handler(struct intr_frame *);
 int user_provide_ptr(const void *vaddr);
+
 int put_file(struct file *f);
 struct file* get_file(int fd);
+
 void close_remove_file(int fd);
-void ptr_isValid (const void *vaddr);
-void buffer_isValid (void *buffer, unsigned size);
-void getArgument (struct intr_frame *f, int *arg, int n);
+
+//void ptr_isValid (const void *vaddr);
+//void buffer_isValid (void *buffer, unsigned size);
+//void getArgument (struct intr_frame *f, int *arg, int n);
 
 #define SIZE 3
 #define VADDR_OF_USER ((void *) 0x08048000)
@@ -46,83 +49,87 @@ syscall_init(void)
 
 static void
 syscall_handler(struct intr_frame *f UNUSED){
-	int arg[SIZE];
-  ptr_isValid ((const void *) f->esp);
+	int arg[SIZE],i;
+	//ptr_isValid ((const void *) f->esp);
+
+	for (i = 0; i <= SIZE; i++){
+		arg[i] = * ((int *) f->esp + i);
+    }
 	/* These state value comes from lib_syscall_nr which defines the
 	sys call numbers. */
-	switch (* (int *)f->esp){
+	switch (arg[0]){
 		case SYS_HALT:{
 			halt(); 
 			break;
 		}
 		case SYS_EXIT:{
-      getArgument(f, &arg[0], 1);
-      exit (arg[0]);
+			//getArgument(f, &arg[0], 1);
+			exit (arg[1]);
 			break;
 		}
 		case SYS_EXEC:{
-      getArgument (f, &arg[0], 1);
-      arg[0] = user_provide_ptr ((const void *) arg[0]);
-      f->eax = exec ((const char *) arg[0]);
+			//getArgument (f, &arg[0], 1);
+			arg[1] = user_provide_ptr ((const void *) arg[1]);
+			f->eax = exec ((const char *) arg[1]);
 			break;
 		}
 		case SYS_WAIT:{
 		/* f->eax, Saved EAX in Interrrupt Frame. */
-      getArgument (f, &arg[0], 1);
-			f->eax = wait(arg[0]);
+			//getArgument (f, &arg[0], 1);
+			f->eax = wait(arg[1]);
 			break;
 		}
 		case SYS_CREATE:
 		{
-      getArgument (f, &arg[0], 2);
-			arg[0] = user_provide_ptr((const void *) arg[0]);
-			f->eax = create((const char *)arg[0], (unsigned) arg[1]);
+			//getArgument (f, &arg[0], 2);
+			arg[1] = user_provide_ptr((const void *) arg[1]);
+			f->eax = create((const char *)arg[1], (unsigned) arg[2]);
 			break;
 		}
 		case SYS_REMOVE:{
-      getArgument (f, &arg[0], 1);
-			arg[0] = user_provide_ptr((const void *) arg[0]);
-			f->eax = remove((const char *) arg[0]);
+			//getArgument (f, &arg[0], 1);
+			arg[1] = user_provide_ptr((const void *) arg[1]);
+			f->eax = remove((const char *) arg[1]);
 			break;
 		}
 		case SYS_OPEN:{
-      getArgument (f, &arg[0], 1);
-			arg[0] = user_provide_ptr((const void *) arg[0]);
-			f->eax = open((const char *) arg[0]);
+			//getArgument (f, &arg[0], 1);
+			arg[1] = user_provide_ptr((const void *) arg[1]);
+			f->eax = open((const char *) arg[1]);
 			break; 		
 		}
 		case SYS_FILESIZE:{
-      getArgument (f, &arg[0], 1);
-			f->eax = filesize(arg[0]);
+			//getArgument (f, &arg[0], 1);
+			f->eax = filesize(arg[1]);
 			break;
 		}
 		case SYS_READ:{
-      getArgument (f, &arg[0], 3);
-      buffer_isValid ((void *) arg[1], (unsigned) arg[2]);
-			arg[1] = user_provide_ptr((const void *) arg[1]);
-			f->eax = read(arg[0], (void *) arg[1], (unsigned) arg[2]);
+			//getArgument (f, &arg[0], 3);
+			//buffer_isValid ((void *) arg[1], (unsigned) arg[2]);
+			arg[2] = user_provide_ptr((const void *) arg[2]);
+			f->eax = read(arg[1], (void *) arg[2], (unsigned) arg[3]);
 			break;
 		}
 		case SYS_WRITE:{ 
-      getArgument (f, &arg[0], 3);
-      buffer_isValid ((void *) arg[1], (unsigned) arg[2]);
-			arg[1] = user_provide_ptr((const void *) arg[1]);
-			f->eax = write(arg[0], (const void *) arg[1], (unsigned) arg[2]);
+			//getArgument (f, &arg[0], 3);
+			//buffer_isValid ((void *) arg[1], (unsigned) arg[2]);
+			arg[2] = user_provide_ptr((const void *) arg[2]);
+			f->eax = write(arg[1], (const void *) arg[2], (unsigned) arg[3]);
 			break;
 		}
 		case SYS_SEEK:{
-      getArgument (f, &arg[0], 2);
-			seek(arg[0], (unsigned) arg[1]);
+			//getArgument (f, &arg[0], 2);
+			seek(arg[1], (unsigned) arg[2]);
 			break;
 		} 
 		case SYS_TELL:{ 
-      getArgument (f, &arg[0], 1);
-			f->eax = tell(arg[0]);
+			//getArgument (f, &arg[0], 1);
+			f->eax = tell(arg[1]);
 			break;
 		}
 		case SYS_CLOSE:{ 
-      getArgument (f, &arg[0], 1);
-			close(arg[0]);
+			//getArgument (f, &arg[0], 1);
+			close(arg[1]);
 			break;
 		} 
 	}
@@ -130,71 +137,70 @@ syscall_handler(struct intr_frame *f UNUSED){
 
 int user_provide_ptr(const void *vaddr){
 	// Verify the validity of a user-provided pointer
-  ptr_isValid (vaddr);
-  void *ptr = pagedir_get_page (thread_current()->pagedir, vaddr);
-  if(!ptr) {
-    exit (ERROR);
-  }
-
-  return (int) ptr;
+  	//ptr_isValid (vaddr);
+  	void *ptr = pagedir_get_page (thread_current()->pagedir, vaddr);
+  	if(!ptr) {
+    	exit (ERROR);
+  	}
+  	return (int) ptr;
 }
 
-void ptr_isValid (const void *vaddr) {
-  if(!is_user_vaddr (vaddr) || vaddr < VADDR_OF_USER)
-    exit (ERROR);
-}
+// void ptr_isValid (const void *vaddr) {
+//   if(!is_user_vaddr (vaddr) || vaddr < VADDR_OF_USER)
+//     exit (ERROR);
+// }
 
-void buffer_isValid (void *buffer, unsigned size) {
-  char *temp = (char *) buffer;
-  int i;
+// void buffer_isValid (void *buffer, unsigned size) {
+//   char *temp = (char *) buffer;
+//   int i;
 
-  for(i = 0; i < size; i++) {
-    ptr_isValid ((const void *)temp);
-    temp++;
-  }
-}
+//   for(i = 0; i < size; i++) {
+//     ptr_isValid ((const void *)temp);
+//     temp++;
+//   }
+// }
 
-void getArgument (struct intr_frame *f, int *arg, int n) {
-  int *ptr;
-  int i;
+// void getArgument (struct intr_frame *f, int *arg, int n) {
+//   int *ptr;
+//   int i;
   
-  for(i = 0; i < n; i++) {
-    ptr = (int *) f->esp + i + 1;
-    ptr_isValid ((const void *) ptr);
-    arg[i] = *ptr;
-  }
-}
+//   for(i = 0; i < n; i++) {
+//     ptr = (int *) f->esp + i + 1;
+//     ptr_isValid ((const void *) ptr);
+//     arg[i] = *ptr;
+//   }
+// }
 
 void halt(void){
 	/* From devices/shutdown.c: Powers down the machine we're running on.*/
 	shutdown_power_off();
 }
 
+// Terminates the current user program, returning status to the kernel.
 void exit(int status){
-  struct thread *currentThread = thread_current();  
+  struct thread *t = thread_current();  
   
-  if(thread_exists (currentThread->parent)) {
-      currentThread->child->status = status;
+  if(thread_exists (t->parent_pid)) {
+      t->child_elem->status = status;
   }
 	// Process Termination Messages
-	printf ("%s: exit(%d)\n", currentThread->name, status);
+	printf ("%s: exit(%d)\n", t->name, status);
 	thread_exit();
-}// Terminates the current user program, returning status to the kernel. 
+} 
 
 pid_t exec(const char *cmd_line){
 	/*Starts a new thread running a user program loaded from
 	FILENAME. Returns the new process's thread id, or TID_ERROR 
 	if the thread cannot be created. TID_ERROR is tid_t-1=-1.*/
 	pid_t pid = process_execute(cmd_line);
-
-  struct child *child = get_child(pid);
-  if(!child || child->load == 2) { //2 means load failed
-    return ERROR;
-  }
-
-  while(child->load == 0) { //0 means hasn't loaded yet
-    barrier();
-  }
+	
+	struct child *child = get_child(pid);
+	while(child->load == 0){ //0 means hasn't loaded yet
+		barrier();
+	}
+	if(!child || child->load == 2){ //2 means load failed
+		return ERROR;
+	}
 	return pid;
 }
 
@@ -231,6 +237,10 @@ int open(const char *file){
 	/* Returns the new file if successful or a null pointer
    otherwise. */
 	struct file *f = filesys_open(file);
+	// if(!f){
+	// 	lock_release(&filesys_lock);
+	// 	return ERROR;
+	// }
 	// Implement a way to get the fd of current file.
 	int fd = put_file(f);
 	lock_release(&file_lock);
@@ -242,6 +252,10 @@ int filesize(int fd){
 	lock_acquire(&file_lock);
 	// Implement a way to get the fd of current file.
 	struct file *f = get_file(fd);
+	// if(!f){
+	// 	lock_release(&filesys_lock);
+	// 	return ERROR;
+	// }
 	// From file.c, Returns the size, in bytes, of the file open as fd.
 	int size = file_length(f);
 	lock_release(&file_lock);
@@ -251,10 +265,11 @@ int filesize(int fd){
 int read(int fd, void *buffer, unsigned size){
 	if(fd == STDIN_FILENO){
 		unsigned i;
-		uint8_t *temp_buffer = (uint8_t *)buffer;
+		uint8_t *temp_buffer;
+		*temp_buffer = (uint8_t *)buffer;
 
 		// Fd 0 reads from the keyboard using input_getc().
-		for (i = 0; i < size; i){
+		for (i = 0; i < size; i++){
 			temp_buffer[i] = input_getc();
 		}
 		return size;
@@ -268,6 +283,7 @@ int read(int fd, void *buffer, unsigned size){
 }
 
 int write(int fd, const void *buffer, unsigned size){
+	// printf("Running write function===\n");
 	// Fd 1 writes to the console. Your code to write to the console 
 	// should write all of buffer in one call to putbuf()
 	if(fd == STDOUT_FILENO){
@@ -277,6 +293,10 @@ int write(int fd, const void *buffer, unsigned size){
 // Add lock to this part
 	lock_acquire(&file_lock);
 	struct file *f = get_file(fd);
+	// if(!f){
+	// 	lock_release(&filesys_lock);
+	// 	return ERROR;
+	// }
 	int bytes = file_write(f, buffer, size);
 	lock_release(&file_lock);
 	return bytes;

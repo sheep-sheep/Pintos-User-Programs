@@ -210,9 +210,9 @@ thread_create (const char *name, int priority,
   intr_set_level (old_level);
 
   /* Push child process to child list. */
-  t->parent = thread_tid ();
+  t->parent_pid = thread_tid ();
   struct child *child = push_child (t->tid);
-  t->child = child;
+  t->child_elem = child;
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -484,9 +484,10 @@ init_thread (struct thread *t, const char *name, int priority)
 
   list_push_back (&all_list, &t->allelem);
 
+  // Initilize the new child process
   list_init (&t->listOfChild);
-  t->parent = -1; //meaning no parent
-  t->child = NULL;
+  t->parent_pid = -1; //meaning no parent
+  t->child_elem = NULL;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

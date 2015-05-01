@@ -2,7 +2,7 @@
 #define USERPROG_SYSCALL_H
 
 #include "threads/synch.h"
-// Do we need close all?
+
 #define CLOSE_FILE -1
 #define ERROR -1
 
